@@ -64,13 +64,13 @@ pipeline {
         withCredentials([usernamePassword(credentialsId: 'github-creds', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
           sh 'rm -rf config'
           sh 'git clone https://$GIT_USER:$GIT_TOKEN@github.com/$GITHUB_USERNAME/$CONFIG_REPO_NAME.git config'
-          sh 'sed -i "s/tag: .*/tag: $IMAGE_TAG/" config/environments/minikube/frontend-values.yaml'
-          sh 'sed -i "s/tag: .*/tag: $IMAGE_TAG/" config/environments/minikube/auth-service-values.yaml'
-          sh 'sed -i "s/tag: .*/tag: $IMAGE_TAG/" config/environments/minikube/task-service-values.yaml'
+          sh 'sed -i "s/tag: .*/tag: $IMAGE_TAG/" config/environments/eks/frontend-values.yaml'
+          sh 'sed -i "s/tag: .*/tag: $IMAGE_TAG/" config/environments/eks/auth-service-values.yaml'
+          sh 'sed -i "s/tag: .*/tag: $IMAGE_TAG/" config/environments/eks/task-service-values.yaml'
           dir('config') {
             sh 'git config user.email "jenkins@example.local"'
             sh 'git config user.name "jenkins"'
-            sh 'git add environments/minikube/frontend-values.yaml environments/minikube/auth-service-values.yaml environments/minikube/task-service-values.yaml'
+            sh 'git add environments/eks/frontend-values.yaml environments/eks/auth-service-values.yaml environments/eks/task-service-values.yaml'
             sh 'git commit -m "Update application image tags to $IMAGE_TAG"'
             sh 'git push origin main'
           }
