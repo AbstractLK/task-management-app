@@ -14,7 +14,17 @@ Each component builds into a separate Docker image:
 - `YOUR_DOCKERHUB_USERNAME/task-management-auth-service`
 - `YOUR_DOCKERHUB_USERNAME/task-management-task-service`
 
-The root `Jenkinsfile` builds all components, pushes all images to DockerHub, then updates image tags in the separate `task-management-k8s-config` GitOps repository.
+The root `Jenkinsfile` deploys to EKS. It builds the frontend with the EKS API URL, uploads `frontend/dist` to S3, invalidates CloudFront, builds and pushes backend Docker images, then updates EKS backend values in the GitOps repository.
+
+For EKS, the frontend is not deployed as a Kubernetes workload. It is served by S3 + CloudFront.
+
+Required Jenkins credentials:
+
+- `dockerhub-creds`: DockerHub username and access token.
+- `github-creds`: GitHub username and personal access token.
+- `aws-creds`: AWS access key ID as username and AWS secret access key as password.
+
+The Jenkins agent must have Node.js, Docker CLI, Git, and AWS CLI installed.
 
 ## Local Development
 

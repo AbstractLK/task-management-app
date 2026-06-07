@@ -1,6 +1,13 @@
 pipeline {
   agent any
 
+  parameters {
+    string(name: 'AWS_REGION', defaultValue: 'ap-southeast-1', description: 'AWS region for S3 deployment.')
+    string(name: 'EKS_API_BASE_URL', defaultValue: 'https://api.example.com', description: 'Public EKS API URL used by the frontend build.')
+    string(name: 'S3_BUCKET', defaultValue: 'task-management-frontend-example', description: 'S3 bucket that hosts the production frontend.')
+    string(name: 'CLOUDFRONT_DISTRIBUTION_ID', defaultValue: '', description: 'CloudFront distribution ID. Leave blank to skip invalidation.')
+  }
+
   environment {
     DOCKERHUB_NAMESPACE = 'abstraxlk'
     GITHUB_USERNAME = 'AbstractLK'
@@ -15,7 +22,7 @@ pipeline {
           steps {
             dir('frontend') {
               sh 'npm install'
-              sh 'npm run build'
+              sh 'VITE_API_BASE_URL="$EKS_API_BASE_URL" npm run build'
             }
           }
         }
@@ -42,7 +49,6 @@ pipeline {
 
     stage('Build Docker Images') {
       steps {
-        sh 'docker build -t $DOCKERHUB_NAMESPACE/task-management-frontend:$IMAGE_TAG frontend'
         sh 'docker build -t $DOCKERHUB_NAMESPACE/task-management-auth-service:$IMAGE_TAG services/auth-service'
         sh 'docker build -t $DOCKERHUB_NAMESPACE/task-management-task-service:$IMAGE_TAG services/task-service'
       }
@@ -52,9 +58,23 @@ pipeline {
       steps {
         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_TOKEN')]) {
           sh 'echo $DOCKERHUB_TOKEN | docker login -u $DOCKERHUB_USER --password-stdin'
-          sh 'docker push $DOCKERHUB_NAMESPACE/task-management-frontend:$IMAGE_TAG'
           sh 'docker push $DOCKERHUB_NAMESPACE/task-management-auth-service:$IMAGE_TAG'
           sh 'docker push $DOCKERHUB_NAMESPACE/task-management-task-service:$IMAGE_TAG'
+        }
+      }
+    }
+
+    stage('Deploy Frontend to S3 and CloudFront') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          sh 'aws s3 sync frontend/dist s3://$S3_BUCKET --delete --region $AWS_REGION'
+          sh '''
+            if [ -n "$CLOUDFRONT_DISTRIBUTION_ID" ]; then
+              aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" --paths "/*"
+            else
+              echo "CLOUDFRONT_DISTRIBUTION_ID is empty; skipping invalidation."
+            fi
+          '''
         }
       }
     }
@@ -64,15 +84,23 @@ pipeline {
         withCredentials([usernamePassword(credentialsId: 'github-creds', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
           sh 'rm -rf config'
           sh 'git clone https://$GIT_USER:$GIT_TOKEN@github.com/$GITHUB_USERNAME/$CONFIG_REPO_NAME.git config'
-          sh 'sed -i "s/tag: .*/tag: $IMAGE_TAG/" config/environments/eks/frontend-values.yaml'
-          sh 'sed -i "s/tag: .*/tag: $IMAGE_TAG/" config/environments/eks/auth-service-values.yaml'
-          sh 'sed -i "s/tag: .*/tag: $IMAGE_TAG/" config/environments/eks/task-service-values.yaml'
+          sh '''
+            sed -i "s/tag: .*/tag: $IMAGE_TAG/" config/environments/eks/auth-service-values.yaml
+            sed -i "s/tag: .*/tag: $IMAGE_TAG/" config/environments/eks/task-service-values.yaml
+          '''
           dir('config') {
             sh 'git config user.email "jenkins@example.local"'
             sh 'git config user.name "jenkins"'
-            sh 'git add environments/eks/frontend-values.yaml environments/eks/auth-service-values.yaml environments/eks/task-service-values.yaml'
-            sh 'git commit -m "Update application image tags to $IMAGE_TAG"'
-            sh 'git push origin main'
+            sh '''
+              git add environments/eks/auth-service-values.yaml environments/eks/task-service-values.yaml
+
+              if git diff --cached --quiet; then
+                echo "No GitOps image tag changes to commit."
+              else
+                git commit -m "Update EKS image tags to $IMAGE_TAG"
+                git push origin main
+              fi
+            '''
           }
         }
       }
