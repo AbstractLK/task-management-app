@@ -1,16 +1,16 @@
 # Jenkins EKS Frontend Deployment
 
-The `task-management-app/Jenkinsfile` now supports deploying the frontend to S3 + CloudFront when `DEPLOY_TARGET=eks`.
+The `task-management-app/Jenkinsfile` deploys the frontend to S3 + CloudFront for the EKS environment.
 
 ## What the EKS Pipeline Does
 
-For `DEPLOY_TARGET=eks`, Jenkins:
+Jenkins:
 
 1. Installs frontend dependencies.
 2. Builds the frontend with:
 
    ```bash
-   VITE_API_BASE_URL=https://api.example.com npm run build
+   VITE_API_BASE_URL=http://<INGRESS_LOAD_BALANCER_DNS> npm run build
    ```
 
 3. Uploads `frontend/dist` to S3:
@@ -34,9 +34,8 @@ The EKS frontend values file remains with `replicaCount: 0` and `ingress.enabled
 
 Set these when running the pipeline:
 
-- `DEPLOY_TARGET`: `eks`
 - `AWS_REGION`: AWS region for the frontend S3 bucket, for example `ap-southeast-1`
-- `EKS_API_BASE_URL`: public API URL, for example `https://api.example.com`
+- `EKS_API_BASE_URL`: public API URL, for example `http://<INGRESS_LOAD_BALANCER_DNS>`
 - `S3_BUCKET`: S3 bucket used by CloudFront
 - `CLOUDFRONT_DISTRIBUTION_ID`: CloudFront distribution ID
 
@@ -68,14 +67,12 @@ The Jenkins agent must have:
 
 Before running the Jenkins EKS pipeline, complete these once:
 
-1. Create the EKS cluster.
+1. Apply `task-management-infrastructure` with Terraform.
 2. Install NGINX Ingress.
 3. Install ArgoCD.
 4. Apply `argocd/eks` applications.
-5. Create the S3 bucket.
-6. Create the CloudFront distribution.
-7. Point `app.example.com` to CloudFront.
-8. Point `api.example.com` to the EKS ingress load balancer.
+5. Copy the ingress-nginx load balancer hostname.
+6. Use that hostname for `EKS_API_BASE_URL`.
 
 After that, each Jenkins run can deploy:
 

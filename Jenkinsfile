@@ -3,7 +3,7 @@ pipeline {
 
   parameters {
     string(name: 'AWS_REGION', defaultValue: 'ap-southeast-1', description: 'AWS region for S3 deployment.')
-    string(name: 'EKS_API_BASE_URL', defaultValue: 'https://api.example.com', description: 'Public EKS API URL used by the frontend build.')
+    string(name: 'EKS_API_BASE_URL', defaultValue: 'http://replace-with-ingress-load-balancer-dns', description: 'Public EKS API URL used by the frontend build.')
     string(name: 'S3_BUCKET', defaultValue: 'task-management-frontend-example', description: 'S3 bucket that hosts the production frontend.')
     string(name: 'CLOUDFRONT_DISTRIBUTION_ID', defaultValue: '', description: 'CloudFront distribution ID. Leave blank to skip invalidation.')
   }
