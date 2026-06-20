@@ -8,8 +8,9 @@ import helmet from 'helmet';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+// const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+dotenv.config();
 
 const app = express();
 const port = process.env.AUTH_PORT || process.env.PORT || 4001;
